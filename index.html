@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>医疗报销助手 v4.1</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #F8FAFC; --surface: #FFFFFF; --accent: #b7f605;
+            --text-main: #0F172A; --text-muted: #64748B; --border: #E2E8F0;
+            --tab-bg: #F1F5F9; --input-bg: #F8FAFC; --card-bg: #0F172A;
+        }
+        [data-theme="dark"] {
+            --bg: #020617; --surface: #0F172A; --text-main: #F8FAFC;
+            --text-muted: #94A3B8; --border: #1E293B; --tab-bg: #1E293B;
+            --input-bg: #1e293b99; --card-bg: #020617;
+        }
+
+        /* 霓虹发光核心 */
+        @property --neon-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', "PingFang SC", sans-serif; }
+        body { min-height: 100vh; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 20px; transition: 0.3s; }
+
+        /* 主容器 */
+        .calculator {
+            background: var(--surface); border-radius: 32px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15);
+            padding: 36px 28px 20px 28px; width: 100%; max-width: 420px;
+            min-height: 700px; height: auto;
+            border: 1px solid var(--border); position: relative;
+            display: flex; flex-direction: column; transition: max-width 0.4s ease;
+        }
+        @media (min-width: 1024px) { .calculator { max-width: 520px; padding: 44px 38px 28px 38px; } }
+
+        .header { text-align: center; margin-bottom: 24px; flex-shrink: 0; }
+        .icon-box { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: var(--accent); color: #000; border-radius: 10px; margin-bottom: 12px; }
+
+        /* 修改点1：增大标题字号 (原18px -> 现24px) */
+        .title { font-size: 24px; font-weight: 800; color: var(--text-main); letter-spacing: -0.5px; }
+
+        /* 选项卡 */
+        .tabs-container { position: relative; background: var(--tab-bg); padding: 6px; border-radius: 16px; margin-bottom: 28px; display: flex; flex-shrink: 0; }
+        .tab { flex: 1; padding: 12px; border: none; background: transparent; color: var(--text-muted); font-size: 15px; font-weight: 800; cursor: pointer; z-index: 2; transition: 0.3s; }
+        .tab.active { color: #000; }
+        .tab-indicator { position: absolute; top: 6px; left: 6px; width: calc(50% - 6px); height: calc(100% - 12px); background: var(--accent); border-radius: 12px; transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 1; }
+
+        /* 内容稳定区 */
+        .content { position: relative; flex: 1; min-height: 400px; }
+        .panel { position: absolute; top: 0; left: 0; width: 100%; opacity: 0; visibility: hidden; transition: opacity 0.3s ease; }
+        .panel.active { opacity: 1; visibility: visible; }
+
+        .form-area { height: 185px; margin-bottom: 15px; display: flex; flex-direction: column; }
+        .group { margin-bottom: 14px; }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        label { display: block; margin-bottom: 6px; font-weight: 700; font-size: 11px; color: var(--text-muted); text-transform: uppercase; }
+        input { width: 100%; padding: 12px 14px; background: var(--input-bg); border: 1.5px solid var(--border); border-radius: 12px; font-size: 15px; font-weight: 700; color: var(--text-main); transition: 0.2s; }
+        input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(183, 246, 5, 0.1); }
+
+        /* 修改点2：按钮增加一点点圆角 (原12px -> 现16px) */
+        .btn-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        .btn-main { flex: 3; padding: 12px; background: var(--accent); color: #000; border: none; border-radius: 16px; font-size: 13px; font-weight: 800; cursor: pointer; transition: 0.2s; }
+        .btn-reset { flex: 1.2; padding: 12px; background: transparent; color: var(--text-muted); border: 1.5px solid var(--border); border-radius: 16px; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+        /* 结果卡片 */
+        .card { margin-top: 10px; padding: 18px 22px; background: var(--card-bg); border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); opacity: 0; transform: translateY(10px); transition: 0.4s; display: flex; flex-direction: column; justify-content: center; min-height: 100px; }
+        .card.show { opacity: 1; transform: translateY(0); }
+        .card-row { display: grid; grid-template-columns: 1fr auto; align-items: baseline; width: 100%; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px dashed rgba(255, 255, 255, 0.15); }
+        .card-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        #res1-card .card-row { border-bottom: 1px dashed rgba(255, 255, 255, 0.15); padding-bottom: 12px; }
+
+        .lbl { color: #E2E8F0; font-size: 13px; font-weight: 600; }
+        .val { font-weight: 800; font-size: 16px; color: var(--accent); text-align: right; }
+        .unit { font-size: 11px; margin-left: 4px; color: #E2E8F0; }
+
+        /* 修改点3：底部图标上色 */
+        .social-footer { margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border); display: flex; justify-content: center; align-items: center; gap: 24px; flex-shrink: 0; }
+        /* 移除默认灰色，分别设置颜色 */
+        .social-link { font-size: 20px; transition: 0.3s; cursor: pointer; text-decoration: none; }
+        .social-link:first-child { color: var(--text-main); } /* Github跟随主题色 */
+        #wxTrigger { color: #07c160; } /* 微信绿 */
+        #donateTrigger { color: #ff4d4f; } /* 爱心红 */
+        /* 悬停效果改为提亮和放大 */
+        .social-link:hover { transform: scale(1.2); filter: brightness(1.1); }
+
+        /* 霓虹弹窗 */
+        .modal { position: fixed; inset: 0; z-index: 300; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(12px); display: none; align-items: center; justify-content: center; padding: 20px; }
+        .modal.active { display: flex; }
+        .neon-modal {
+            position: relative; border-radius: 28px; background: linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
+            border: 1px solid rgba(255, 255, 255, 0.15); padding: 30px; width: 100%; max-width: 340px; text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 25px rgba(255, 105, 198, 0.25); overflow: hidden;
+        }
+        .neon-modal::before {
+            content: ""; position: absolute; inset: -2px; border-radius: inherit; padding: 2.5px;
+            background: conic-gradient(from var(--neon-angle), #ff69c6, #b56bff, #4dc7ff, #ff69c6);
+            -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask-composite: exclude; animation: neonAngle 6s linear infinite; pointer-events: none; z-index: 10;
+        }
+        @keyframes neonAngle { to { --neon-angle: 360deg; } }
+        .neon-title { font-size: 22px; font-weight: 800; color: #ec4899; margin-bottom: 20px; text-shadow: 0 0 10px rgba(236, 72, 153, 0.5); }
+
+        /* 打赏弹窗 */
+        .donate-content { background: #181a1f; border: 1px solid #374151; border-radius: 24px; width: 100%; max-width: 320px; padding: 30px; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.5); }
+        .pay-tabs { display: flex; border: 1px solid #374151; border-radius: 12px; overflow: hidden; margin-bottom: 20px; background: rgba(255,255,255,0.03); }
+        .pay-tab { flex: 1; padding: 12px; border: none; font-size: 14px; font-weight: 700; cursor: pointer; background: transparent; color: #9ca3af; transition: 0.3s; }
+        .pay-tab.active { background: rgba(234,179,8,0.15); color: #eab308; }
+        .qr-box { background: rgba(255,255,255,0.05); padding: 10px; border-radius: 16px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1); }
+        .qr-img { width: 100%; height: auto; border-radius: 8px; display: block; }
+
+        .theme-btn { position: absolute; top: 25px; right: 25px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="calculator">
+        <button class="theme-btn" id="themeToggle"><i class="fas fa-circle-half-stroke"></i></button>
+
+        <div class="header">
+            <div class="icon-box"><i class="fas fa-plus-square"></i></div>
+            <h1 class="title">医疗报销助手</h1>
+        </div>
+
+        <div class="tabs-container">
+            <div class="tab-indicator" id="indicator"></div>
+            <button class="tab active" data-idx="0" data-tab="tab1">满额测算</button>
+            <button class="tab" data-idx="1" data-tab="tab2">账单核算</button>
+        </div>
+
+        <div class="content">
+            <div id="tab1" class="panel active">
+                <div class="form-area">
+                    <div class="group"><label>目标报销金额 (元)</label><input type="number" id="t1" value="100"></div>
+                    <div class="group"><label>报销大约比例(%)</label><input type="number" id="r1" value="66"></div>
+                </div>
+                <div class="btn-group">
+                    <button class="btn-main" onclick="c1()">开始智能测算</button>
+                    <button class="btn-reset" onclick="rs1()">重置</button>
+                </div>
+                <div class="card" id="res1-card">
+                    <div class="card-row"><span class="lbl">建议购药总额</span><span class="val"><span id="v1">0.00</span><span class="unit">元</span></span></div>
+                </div>
+            </div>
+
+            <div id="tab2" class="panel">
+                <div class="form-area">
+                    <div class="group"><label>账单总费用</label><input type="number" id="t2" placeholder="0.00"></div>
+                    <div class="row">
+                        <div class="group"><label>统筹支付金额</label><input type="number" id="s2" placeholder="0.00"></div>
+                        <div class="group"><label>年度剩余额度</label><input type="number" id="m2" value="100"></div>
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button class="btn-main" onclick="c2()">分析账单详情</button>
+                    <button class="btn-reset" onclick="rs2()">重置</button>
+                </div>
+                <div class="card" id="res2-card">
+                    <div class="card-row"><span class="lbl">实际报销比例</span><span class="val"><span id="v2_1">0.0</span><span class="unit">%</span></span></div>
+                    <div class="card-row"><span class="lbl">本次统筹后余额</span><span class="val"><span id="v2_2">0.00</span><span class="unit">元</span></span></div>
+                    <div class="card-row"><span class="lbl">建议后续购药</span><span class="val"><span id="v2_3">0.00</span><span class="unit">元</span></span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="social-footer">
+            <a href="https://github.com/kyjl97" target="_blank" class="social-link"><i class="fab fa-github"></i></a>
+            <div class="social-link" id="wxTrigger"><i class="fab fa-weixin"></i></div>
+            <div class="social-link" id="donateTrigger"><i class="fas fa-hand-holding-heart"></i></div>
+        </div>
+    </div>
+
+    <div class="modal" id="wxModal">
+        <div class="neon-modal">
+            <h3 class="neon-title">博主微信</h3>
+            <div class="qr-box" style="background:rgba(0,0,0,0.2); padding:8px; border-radius:12px; margin-bottom:20px;">
+                <img src="https://raw.githubusercontent.com/kyjl97/kyjl97/main/assets/logo.png" class="qr-img" style="width:100%; border-radius:8px;">
+            </div>
+            <p style="color:rgba(255,255,255,0.8); margin-bottom:24px; font-family:monospace;">GitHub: <span id="wxId" style="color:#f472b6; font-weight:bold;">kyjl97</span></p>
+            <div style="display:flex; gap:12px; position:relative; z-index:20;">
+                <button class="btn-main" style="flex:1; border-radius:12px;" onclick="copyWx(this)">复制微信</button>
+                <button class="btn-reset" style="flex:1; border-radius:12px; color:white; border:1px solid rgba(255,255,255,0.2);" onclick="closeM('wxModal')">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="donateModal">
+        <div class="donate-content">
+            <h3 style="color:white; margin-bottom:20px; font-size:18px;"><i class="fas fa-heart" style="color:#ef4444;"></i> 感谢支持</h3>
+            <div class="pay-tabs">
+                <button class="pay-tab active" id="payWx">微信</button>
+                <button class="pay-tab" id="payAli">支付宝</button>
+            </div>
+            <div class="qr-box"><img id="payQR" src="https://raw.githubusercontent.com/kyjl97/kyjl97/main/assets/logo.png" class="qr-img"></div>
+            <button class="btn-reset" style="width:100%; color:#9ca3af; border:1px solid #374151; border-radius:12px;" onclick="closeM('donateModal')">关闭窗口</button>
+        </div>
+    </div>
+
+    <script>
+        function c1() {
+            const t = parseFloat(document.getElementById('t1').value), r = parseFloat(document.getElementById('r1').value)/100;
+            if(t && r) {
+                document.getElementById('v1').innerText = (t/r).toFixed(2);
+                document.getElementById('res1-card').classList.add('show');
+            }
+        }
+        function rs1() { document.getElementById('res1-card').classList.remove('show'); }
+
+        function c2() {
+            const t = parseFloat(document.getElementById('t2').value), s = parseFloat(document.getElementById('s2').value), m = parseFloat(document.getElementById('m2').value);
+            if(t > 0 && !isNaN(s)) {
+                const r = s/t, rm = Math.max(0, m-s);
+                document.getElementById('v2_1').innerText = (r*100).toFixed(1);
+                document.getElementById('v2_2').innerText = rm.toFixed(2);
+                document.getElementById('v2_3').innerText = r > 0 ? (rm/r).toFixed(2) : '0.00';
+                document.getElementById('res2-card').classList.add('show');
+            }
+        }
+        function rs2() { document.getElementById('t2').value=''; document.getElementById('s2').value=''; document.getElementById('res2-card').classList.remove('show'); }
+
+        document.getElementById('themeToggle').onclick = () => document.documentElement.setAttribute('data-theme', document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+
+        const tabs = document.querySelectorAll('.tab'), indicator = document.getElementById('indicator');
+        tabs.forEach(t => {
+            t.onclick = () => {
+                indicator.style.transform = `translateX(${t.dataset.idx * 100}%)`;
+                document.querySelectorAll('.tab, .panel').forEach(el => el.classList.remove('active'));
+                t.classList.add('active'); document.getElementById(t.dataset.tab).classList.add('active');
+            }
+        });
+
+        function openM(id) { const m = document.getElementById(id); m.style.display = 'flex'; setTimeout(() => m.classList.add('active'), 10); }
+        function closeM(id) { const m = document.getElementById(id); m.classList.remove('active'); setTimeout(() => m.style.display = 'none', 300); }
+
+        document.getElementById('wxTrigger').onclick = () => openM('wxModal');
+        document.getElementById('donateTrigger').onclick = () => openM('donateModal');
+
+        function copyWx(btn) {
+            navigator.clipboard.writeText("kyjl97").then(() => {
+                const old = btn.innerText; btn.innerText = "已复制！";
+                btn.style.color = "#b7f605";
+                setTimeout(() => { btn.innerText = old; btn.style.color = "white"; }, 2000);
+            });
+        }
+
+        const payWx = document.getElementById('payWx'), payAli = document.getElementById('payAli'), payQR = document.getElementById('payQR');
+        payWx.onclick = () => { payQR.src = "https://raw.githubusercontent.com/kyjl97/kyjl97/main/assets/logo.png"; payWx.classList.add('active'); payAli.classList.remove('active'); };
+        payAli.onclick = () => { payQR.src = "https://raw.githubusercontent.com/kyjl97/kyjl97/main/assets/logo.png"; payAli.classList.add('active'); payWx.classList.remove('active'); };
+
+        window.onclick = (e) => { if(e.target.classList.contains('modal')) closeM(e.target.id); };
+    </script>
+</body>
+</html>
